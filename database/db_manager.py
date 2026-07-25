@@ -25,6 +25,8 @@ class DatabaseManager:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
             camera TEXT,
+            
+            track_id INTEGER,
 
             event_type TEXT,
 
@@ -45,6 +47,8 @@ class DatabaseManager:
         INSERT INTO events(
 
             camera,
+            
+            track_id,
 
             event_type,
 
@@ -54,13 +58,15 @@ class DatabaseManager:
 
         )
 
-        VALUES(?,?,?,?)
+        VALUES(?,?,?,?,?)
 
         """,
 
         (
 
             event["camera"],
+            
+            event["track_id"],
 
             event["event_type"],
 
