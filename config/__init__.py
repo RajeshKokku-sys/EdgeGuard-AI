@@ -1,0 +1,1 @@
+"""Configuration for EdgeGuard AI."""
