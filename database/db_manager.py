@@ -27,6 +27,8 @@ class DatabaseManager:
             camera TEXT,
             
             track_id INTEGER,
+            
+            zone_name TEXT,
 
             event_type TEXT,
 
@@ -49,6 +51,8 @@ class DatabaseManager:
             camera,
             
             track_id,
+            
+            zone_name,
 
             event_type,
 
@@ -58,7 +62,7 @@ class DatabaseManager:
 
         )
 
-        VALUES(?,?,?,?,?)
+        VALUES(?,?,?,?,?,?)
 
         """,
 
@@ -67,6 +71,8 @@ class DatabaseManager:
             event["camera"],
             
             event["track_id"],
+            
+            event["zone_name"],
 
             event["event_type"],
 
