@@ -3,15 +3,15 @@ import sqlite3
 
 class DatabaseManager:
 
+
     def __init__(
         self,
         db_name="database/edgeguard.db"
     ):
 
-        self.db_name = db_name
-
         self.connection = sqlite3.connect(
-            self.db_name
+            db_name,
+            check_same_thread=False
         )
 
         self.cursor = self.connection.cursor()
@@ -19,14 +19,14 @@ class DatabaseManager:
         self.create_tables()
 
 
-    # ---------------------------------------
-    # Create Database Tables
-    # ---------------------------------------
+    # ------------------------------------
+    # Create Tables
+    # ------------------------------------
 
     def create_tables(self):
 
         self.cursor.execute("""
-
+        
         CREATE TABLE IF NOT EXISTS events(
 
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,20 +48,41 @@ class DatabaseManager:
         """)
 
 
+        self.cursor.execute("""
+        
+        CREATE TABLE IF NOT EXISTS evidence(
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            event_id INTEGER,
+
+            image_path TEXT,
+
+            video_path TEXT,
+
+            created_time TEXT,
+
+            FOREIGN KEY(event_id)
+            REFERENCES events(id)
+
+        )
+
+        """)
+
+
         self.connection.commit()
 
 
 
-    # ---------------------------------------
-    # Insert Security Event
-    # ---------------------------------------
+    # ------------------------------------
+    # Insert Event
+    # ------------------------------------
 
-    def insert_event(
-        self,
-        event
-    ):
+    def insert_event(self,event):
 
-        self.cursor.execute("""
+
+        self.cursor.execute(
+        """
 
         INSERT INTO events(
 
@@ -97,112 +118,124 @@ class DatabaseManager:
 
             str(event["timestamp"])
 
-        )
+        ))
+
+
+        self.connection.commit()
+
+
+        return self.cursor.lastrowid
+
+
+
+    # ------------------------------------
+    # Insert Evidence
+    # ------------------------------------
+
+    def insert_evidence(
+
+        self,
+
+        event_id,
+
+        image_path,
+
+        video_path
+
+    ):
+
+
+        self.cursor.execute(
+        """
+
+        INSERT INTO evidence(
+
+            event_id,
+
+            image_path,
+
+            video_path,
+
+            created_time
 
         )
+
+        VALUES(?,?,?,datetime('now'))
+
+        """,
+
+        (
+
+            event_id,
+
+            image_path,
+
+            video_path
+
+        ))
 
 
         self.connection.commit()
 
 
 
-    # ---------------------------------------
-    # Retrieve Events
-    # Used by Dashboard
-    # ---------------------------------------
+    # ------------------------------------
+    # Dashboard Query
+    # ------------------------------------
 
-    def get_events(self):
+    def get_events_with_evidence(self):
+
 
         query = """
 
         SELECT
 
-            id,
+        events.id,
 
-            camera,
+        events.camera,
 
-            track_id,
+        events.track_id,
 
-            event_type,
+        events.zone_name,
 
-            zone_name,
+        events.event_type,
 
-            confidence,
+        events.confidence,
 
-            timestamp
+        events.timestamp,
 
+        evidence.image_path,
 
-        FROM events
-
-
-        ORDER BY timestamp DESC
-
-        """
-
-
-        self.cursor.execute(query)
-
-
-        events = self.cursor.fetchall()
-
-
-        return events
-
-
-
-    # ---------------------------------------
-    # Get Latest Events
-    # Optional Dashboard Feature
-    # ---------------------------------------
-
-    def get_latest_events(
-        self,
-        limit=10
-    ):
-
-        query = """
-
-        SELECT
-
-            id,
-
-            camera,
-
-            track_id,
-
-            event_type,
-
-            zone_name,
-
-            confidence,
-
-            timestamp
+        evidence.video_path
 
 
         FROM events
 
 
-        ORDER BY id DESC
+        LEFT JOIN evidence
 
 
-        LIMIT ?
+        ON events.id = evidence.event_id
+
+
+        ORDER BY events.timestamp DESC
+
 
         """
 
 
-        self.cursor.execute(
-            query,
-            (limit,)
-        )
+        result = self.cursor.execute(
+            query
+        ).fetchall()
 
 
-        return self.cursor.fetchall()
+        return result
 
 
 
-    # ---------------------------------------
-    # Close Database
-    # ---------------------------------------
+    # ------------------------------------
+    # Close DB
+    # ------------------------------------
 
     def close(self):
 

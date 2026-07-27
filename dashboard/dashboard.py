@@ -1,135 +1,128 @@
 import streamlit as st
+
 import pandas as pd
-import os
 
 from PIL import Image
 
-
-# -----------------------------------------
-# Add project root to Python path
-# -----------------------------------------
+import os
 
 import sys
+from pathlib import Path
 
-sys.path.append(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        )
-    )
-)
+# Project root directory
+ROOT_DIR = Path(__file__).resolve().parent.parent
 
-
+# Add project root to Python path
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+    
 from database.db_manager import DatabaseManager
 
 
-# -----------------------------------------
-# Streamlit Configuration
-# -----------------------------------------
 
 st.set_page_config(
+
     page_title="EdgeGuard AI",
+
     layout="wide"
+
 )
 
 
-st.title("🚨 EdgeGuard AI - Security Dashboard")
 
-
-# -----------------------------------------
-# Load Database
-# -----------------------------------------
-
-try:
-
-    db = DatabaseManager()
-
-    events = db.get_events()
-
-
-except Exception as e:
-
-    st.error(
-        f"Database Error: {e}"
-    )
-
-    st.stop()
+st.title(
+    "🚨 EdgeGuard AI Evidence Dashboard"
+)
 
 
 
-# -----------------------------------------
-# Check Events
-# -----------------------------------------
+db = DatabaseManager()
 
-if len(events) == 0:
+
+
+events = (
+    db.get_events_with_evidence()
+)
+
+
+
+if not events:
 
     st.warning(
-        "No security events found in database"
+        "No events available"
     )
 
     st.stop()
 
 
-
-# -----------------------------------------
-# Convert Events to DataFrame
-# -----------------------------------------
 
 columns = [
 
-    "ID",
+"ID",
 
-    "Camera",
+"Camera",
 
-    "Track ID",
+"Track ID",
 
-    "Event Type",
+"Zone",
 
-    "Zone",
+"Event",
 
-    "Confidence",
+"Confidence",
 
-    "Timestamp"
+"Timestamp",
+
+"Image",
+
+"Video"
 
 ]
 
 
+
 df = pd.DataFrame(
+
     events,
+
     columns=columns
+
 )
 
 
 
-# -----------------------------------------
-# Dashboard Metrics
-# -----------------------------------------
-
-col1, col2, col3 = st.columns(3)
+# -----------------------------
+# Metrics
+# -----------------------------
 
 
-with col1:
-
-    st.metric(
-        "Total Events",
-        len(df)
-    )
+c1,c2,c3 = st.columns(3)
 
 
-with col2:
+c1.metric(
 
-    st.metric(
-        "Tracked Persons",
-        df["Track ID"].nunique()
-    )
+"Total Events",
+
+len(df)
+
+)
 
 
-with col3:
+c2.metric(
 
-    st.metric(
-        "Restricted Zones",
-        df["Zone"].nunique()
-    )
+"Unique Persons",
+
+df["Track ID"].nunique()
+
+)
+
+
+c3.metric(
+
+"Zones",
+
+df["Zone"].nunique()
+
+)
 
 
 
@@ -137,13 +130,10 @@ st.divider()
 
 
 
-# -----------------------------------------
-# Event History
-# -----------------------------------------
-
 st.subheader(
-    "Security Event History"
+    "Security Events"
 )
+
 
 
 st.dataframe(
@@ -157,62 +147,71 @@ st.divider()
 
 
 
-# -----------------------------------------
-# Evidence Viewer
-# -----------------------------------------
-
 st.subheader(
-    "Captured Evidence"
+    "Evidence Viewer"
 )
 
 
-image_folder = "evidence/images"
+
+for _,row in df.iterrows():
 
 
-if not os.path.exists(image_folder):
+    st.write(
+        f"""
+        ## Event {row['ID']}
 
-    st.warning(
-        "Evidence folder not found"
+        Camera:
+        {row['Camera']}
+
+        Person ID:
+        {row['Track ID']}
+
+        Zone:
+        {row['Zone']}
+
+        Time:
+        {row['Timestamp']}
+        """
     )
 
-else:
-
-    images = os.listdir(
-        image_folder
-    )
 
 
-    if len(images) == 0:
+    # Image
 
-        st.warning(
-            "No evidence images available"
+    if row["Image"] and os.path.exists(
+        row["Image"]
+    ):
+
+
+        image = Image.open(
+            row["Image"]
         )
 
 
-    else:
-
-        for image_name in images[::-1]:
-
-            image_path = os.path.join(
-                image_folder,
-                image_name
-            )
+        st.image(
+            image,
+            width=500
+        )
 
 
-            st.write(
-                f"Evidence: {image_name}"
-            )
+
+    # Video
+
+    if row["Video"] and os.path.exists(
+        row["Video"]
+    ):
 
 
-            image = Image.open(
-                image_path
-            )
+        video_file = open(
+            row["Video"],
+            "rb"
+        )
 
 
-            st.image(
-                image,
-                width=600
-            )
+        st.video(
+            video_file
+        )
 
 
-            st.divider()
+
+    st.divider()
