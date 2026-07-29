@@ -1,24 +1,49 @@
+import sys
+import os
+import warnings
+
+
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning
+)
+
+
+# ==================================================
+# Add Project Root
+# ==================================================
+
+PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    )
+)
+
+
+sys.path.append(PROJECT_ROOT)
+
+
+
 import streamlit as st
 
-import pandas as pd
-
-from PIL import Image
-
-import os
-
-import sys
-from pathlib import Path
-
-# Project root directory
-ROOT_DIR = Path(__file__).resolve().parent.parent
-
-# Add project root to Python path
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
-    
-from database.db_manager import DatabaseManager
 
 
+from camera.camera_registry import CameraRegistry
+
+from camera.multi_camera_manager import MultiCameraManager
+
+
+from ai_pipeline.processor import FrameProcessor
+
+
+from camera_view import show_camera_frame
+
+
+
+
+# ==================================================
+# Streamlit Configuration
+# ==================================================
 
 st.set_page_config(
 
@@ -31,187 +56,253 @@ st.set_page_config(
 
 
 st.title(
-    "🚨 EdgeGuard AI Evidence Dashboard"
+    "🚨 EdgeGuard AI Security Dashboard"
 )
 
 
 
-db = DatabaseManager()
+
+# ==================================================
+# Initialize Cameras
+# ==================================================
+
+@st.cache_resource
+def initialize_camera_manager():
 
 
+    config_path = os.path.join(
 
-events = (
-    db.get_events_with_evidence()
-)
+        PROJECT_ROOT,
 
+        "camera",
 
+        "cameras.json"
 
-if not events:
-
-    st.warning(
-        "No events available"
     )
 
-    st.stop()
+
+    registry = CameraRegistry(
+
+        config_path
+
+    )
+
+
+    manager = MultiCameraManager(
+
+        registry.get_active_cameras()
+
+    )
+
+
+    manager.start()
+
+
+    return manager
 
 
 
-columns = [
 
-"ID",
-
-"Camera",
-
-"Track ID",
-
-"Zone",
-
-"Event",
-
-"Confidence",
-
-"Timestamp",
-
-"Image",
-
-"Video"
-
-]
+camera_manager = initialize_camera_manager()
 
 
 
-df = pd.DataFrame(
 
-    events,
+# ==================================================
+# Initialize AI Pipeline
+# ==================================================
 
-    columns=columns
+@st.cache_resource
+def initialize_ai_processor():
 
+
+    return FrameProcessor()
+
+
+
+
+processor = initialize_ai_processor()
+
+
+
+
+# ==================================================
+# Get Frames
+# ==================================================
+
+frames = camera_manager.get_frames()
+
+
+camera_status = camera_manager.get_status()
+
+
+
+
+# ==================================================
+# AI Processing
+#
+# Frame
+#   |
+#   ▼
+# AI Pipeline
+#   |
+#   ▼
+# ByteTrack + Face Recognition
+#
+# ==================================================
+
+
+processed_frames = {}
+
+
+
+for camera_name, frame in frames.items():
+
+
+    if frame is not None:
+
+
+        result = processor.process_camera_frame(
+
+            camera_name,
+
+            frame
+
+        )
+
+
+        processed_frames[camera_name] = result
+
+
+
+
+# ==================================================
+# Display Cameras
+# ==================================================
+
+st.subheader(
+    "📹 Live AI Monitoring"
 )
 
 
 
-# -----------------------------
-# Metrics
-# -----------------------------
-
-
-c1,c2,c3 = st.columns(3)
-
-
-c1.metric(
-
-"Total Events",
-
-len(df)
-
+camera_names = list(
+    processed_frames.keys()
 )
 
 
-c2.metric(
 
-"Unique Persons",
-
-df["Track ID"].nunique()
-
-)
+columns = st.columns(2)
 
 
-c3.metric(
 
-"Zones",
-
-df["Zone"].nunique()
-
-)
+for index, camera_name in enumerate(camera_names):
 
 
+    with columns[index % 2]:
+
+
+        data = processed_frames[camera_name]
+
+
+        show_camera_frame(
+
+            camera_name,
+
+            data["frame"],
+
+            camera_status[camera_name],
+
+            data["people"]
+
+        )
+
+
+
+# ==================================================
+# Security Summary
+# ==================================================
 
 st.divider()
 
 
-
 st.subheader(
-    "Security Events"
+    "🛡️ Security Summary"
 )
 
 
 
-st.dataframe(
-    df,
-    use_container_width=True
-)
+total_people = 0
+
+unknown_people = 0
+
+authorized_people = 0
 
 
 
-st.divider()
+for camera_name,data in processed_frames.items():
+
+
+    for person in data["people"]:
+
+
+        total_people += 1
+
+
+        identity = person["identity"]
+
+
+        if identity["authorized"]:
+
+            authorized_people += 1
+
+        else:
+
+            unknown_people += 1
 
 
 
-st.subheader(
-    "Evidence Viewer"
-)
+
+col1,col2,col3 = st.columns(3)
 
 
 
-for _,row in df.iterrows():
+with col1:
+
+    st.metric(
+
+        "Total People",
+
+        total_people
+
+    )
 
 
-    st.write(
-        f"""
-        ## Event {row['ID']}
+with col2:
 
-        Camera:
-        {row['Camera']}
+    st.metric(
 
-        Person ID:
-        {row['Track ID']}
+        "Authorized",
 
-        Zone:
-        {row['Zone']}
+        authorized_people
 
-        Time:
-        {row['Timestamp']}
-        """
+    )
+
+
+with col3:
+
+    st.metric(
+
+        "Unknown",
+
+        unknown_people
+
     )
 
 
 
-    # Image
+# ==================================================
+# Refresh
+# ==================================================
 
-    if row["Image"] and os.path.exists(
-        row["Image"]
-    ):
-
-
-        image = Image.open(
-            row["Image"]
-        )
-
-
-        st.image(
-            image,
-            width=500
-        )
-
-
-
-    # Video
-
-    if row["Video"] and os.path.exists(
-        row["Video"]
-    ):
-
-
-        video_file = open(
-            row["Video"],
-            "rb"
-        )
-
-
-        st.video(
-            video_file
-        )
-
-
-
-    st.divider()
+st.rerun()

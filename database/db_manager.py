@@ -1,32 +1,70 @@
 import sqlite3
+import pickle
+
+from config.settings import Settings
 
 
 class DatabaseManager:
+    """
+    EdgeGuard AI Database Manager
 
+    Handles:
+    - Employees
+    - Events
+    - Evidence
+    """
 
-    def __init__(
-        self,
-        db_name="database/edgeguard.db"
-    ):
+    def __init__(self):
 
         self.connection = sqlite3.connect(
-            db_name,
+            Settings.DATABASE_PATH,
             check_same_thread=False
         )
+
+        self.connection.row_factory = sqlite3.Row
 
         self.cursor = self.connection.cursor()
 
         self.create_tables()
 
-
-    # ------------------------------------
-    # Create Tables
-    # ------------------------------------
+    # =====================================================
+    # CREATE TABLES
+    # =====================================================
 
     def create_tables(self):
 
+        # -------------------------
+        # Employee Table
+        # -------------------------
+
         self.cursor.execute("""
-        
+
+        CREATE TABLE IF NOT EXISTS employees(
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            employee_id TEXT UNIQUE,
+
+            name TEXT,
+
+            department TEXT,
+
+            designation TEXT,
+
+            embedding BLOB,
+
+            created_time TEXT DEFAULT CURRENT_TIMESTAMP
+
+        )
+
+        """)
+
+        # -------------------------
+        # Event Table
+        # -------------------------
+
+        self.cursor.execute("""
+
         CREATE TABLE IF NOT EXISTS events(
 
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,6 +72,10 @@ class DatabaseManager:
             camera TEXT,
 
             track_id INTEGER,
+
+            person_name TEXT,
+
+            authentication TEXT,
 
             zone_name TEXT,
 
@@ -47,9 +89,12 @@ class DatabaseManager:
 
         """)
 
+        # -------------------------
+        # Evidence Table
+        # -------------------------
 
         self.cursor.execute("""
-        
+
         CREATE TABLE IF NOT EXISTS evidence(
 
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,7 +105,7 @@ class DatabaseManager:
 
             video_path TEXT,
 
-            created_time TEXT,
+            created_time TEXT DEFAULT CURRENT_TIMESTAMP,
 
             FOREIGN KEY(event_id)
             REFERENCES events(id)
@@ -69,26 +114,141 @@ class DatabaseManager:
 
         """)
 
+        self.connection.commit()
+
+    # =====================================================
+    # EMPLOYEE METHODS
+    # =====================================================
+
+    def add_employee(
+
+        self,
+
+        employee_id,
+
+        name,
+
+        department,
+
+        designation,
+
+        embedding
+
+    ):
+
+        embedding_blob = pickle.dumps(
+            embedding
+        )
+
+        self.cursor.execute("""
+
+        INSERT INTO employees(
+
+            employee_id,
+
+            name,
+
+            department,
+
+            designation,
+
+            embedding
+
+        )
+
+        VALUES(?,?,?,?,?)
+
+        """,
+
+        (
+
+            employee_id,
+
+            name,
+
+            department,
+
+            designation,
+
+            embedding_blob
+
+        ))
 
         self.connection.commit()
 
+    def get_all_employees(self):
 
+        result = self.cursor.execute("""
 
-    # ------------------------------------
-    # Insert Event
-    # ------------------------------------
+        SELECT *
 
-    def insert_event(self,event):
+        FROM employees
 
+        ORDER BY name
 
-        self.cursor.execute(
-        """
+        """)
+
+        return result.fetchall()
+
+    def get_employee_embeddings(self):
+
+        result = self.cursor.execute("""
+
+        SELECT
+
+        employee_id,
+
+        name,
+
+        department,
+
+        designation,
+
+        embedding
+
+        FROM employees
+
+        """)
+
+        employees = []
+
+        for row in result.fetchall():
+
+            employees.append({
+
+                "employee_id": row["employee_id"],
+
+                "name": row["name"],
+
+                "department": row["department"],
+
+                "designation": row["designation"],
+
+                "embedding": pickle.loads(
+                    row["embedding"]
+                )
+
+            })
+
+        return employees
+
+    # =====================================================
+    # EVENT METHODS
+    # =====================================================
+
+    def insert_event(self, event):
+
+        self.cursor.execute("""
 
         INSERT INTO events(
 
             camera,
 
             track_id,
+
+            person_name,
+
+            authentication,
 
             zone_name,
 
@@ -100,7 +260,7 @@ class DatabaseManager:
 
         )
 
-        VALUES(?,?,?,?,?,?)
+        VALUES(?,?,?,?,?,?,?,?)
 
         """,
 
@@ -109,6 +269,10 @@ class DatabaseManager:
             event["camera"],
 
             event["track_id"],
+
+            event["person_name"],
+
+            event["authentication"],
 
             event["zone_name"],
 
@@ -120,17 +284,27 @@ class DatabaseManager:
 
         ))
 
-
         self.connection.commit()
-
 
         return self.cursor.lastrowid
 
+    def get_events(self):
 
+        result = self.cursor.execute("""
 
-    # ------------------------------------
-    # Insert Evidence
-    # ------------------------------------
+        SELECT *
+
+        FROM events
+
+        ORDER BY timestamp DESC
+
+        """)
+
+        return result.fetchall()
+
+    # =====================================================
+    # EVIDENCE METHODS
+    # =====================================================
 
     def insert_evidence(
 
@@ -144,9 +318,7 @@ class DatabaseManager:
 
     ):
 
-
-        self.cursor.execute(
-        """
+        self.cursor.execute("""
 
         INSERT INTO evidence(
 
@@ -154,13 +326,11 @@ class DatabaseManager:
 
             image_path,
 
-            video_path,
-
-            created_time
+            video_path
 
         )
 
-        VALUES(?,?,?,datetime('now'))
+        VALUES(?,?,?)
 
         """,
 
@@ -174,68 +344,121 @@ class DatabaseManager:
 
         ))
 
-
         self.connection.commit()
 
-
-
-    # ------------------------------------
-    # Dashboard Query
-    # ------------------------------------
+    # =====================================================
+    # DASHBOARD QUERY
+    # =====================================================
 
     def get_events_with_evidence(self):
 
-
-        query = """
+        result = self.cursor.execute("""
 
         SELECT
 
-        events.id,
+            events.id,
 
-        events.camera,
+            events.camera,
 
-        events.track_id,
+            events.track_id,
 
-        events.zone_name,
+            events.person_name,
 
-        events.event_type,
+            events.authentication,
 
-        events.confidence,
+            events.zone_name,
 
-        events.timestamp,
+            events.event_type,
 
-        evidence.image_path,
+            events.confidence,
 
-        evidence.video_path
+            events.timestamp,
 
+            evidence.image_path,
+
+            evidence.video_path
 
         FROM events
 
-
         LEFT JOIN evidence
-
 
         ON events.id = evidence.event_id
 
-
         ORDER BY events.timestamp DESC
 
+        """)
 
-        """
+        return result.fetchall()
 
+    # =====================================================
+    # DASHBOARD STATISTICS
+    # =====================================================
 
-        result = self.cursor.execute(
-            query
-        ).fetchall()
+    def get_dashboard_statistics(self):
 
+        stats = {}
 
-        return result
+        stats["employees"] = self.cursor.execute(
 
+            "SELECT COUNT(*) FROM employees"
 
+        ).fetchone()[0]
 
-    # ------------------------------------
-    # Close DB
-    # ------------------------------------
+        stats["events"] = self.cursor.execute(
+
+            "SELECT COUNT(*) FROM events"
+
+        ).fetchone()[0]
+
+        stats["intrusions"] = self.cursor.execute("""
+
+            SELECT COUNT(*)
+
+            FROM events
+
+            WHERE event_type='ZONE_INTRUSION'
+
+        """).fetchone()[0]
+
+        stats["unknown_people"] = self.cursor.execute("""
+
+            SELECT COUNT(*)
+
+            FROM events
+
+            WHERE authentication='UNAUTHORIZED'
+
+        """).fetchone()[0]
+
+        return stats
+
+    # =====================================================
+    # DELETE METHODS
+    # =====================================================
+
+    def delete_event(self, event_id):
+
+        self.cursor.execute(
+
+            "DELETE FROM evidence WHERE event_id=?",
+
+            (event_id,)
+
+        )
+
+        self.cursor.execute(
+
+            "DELETE FROM events WHERE id=?",
+
+            (event_id,)
+
+        )
+
+        self.connection.commit()
+
+    # =====================================================
+    # CLOSE DATABASE
+    # =====================================================
 
     def close(self):
 

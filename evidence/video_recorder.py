@@ -1,26 +1,26 @@
 import cv2
-import time
+import os
+
+from config.settings import Settings
 
 
 class VideoRecorder:
 
 
-    def __init__(
-        self,
-        fps=20,
-        duration=30
-    ):
+    def __init__(self):
 
-        self.fps=fps
-
-        self.duration=duration
+        self.fps = Settings.VIDEO_FPS
 
 
 
     def save_video(
+
         self,
+
         frames,
+
         filename
+
     ):
 
 
@@ -29,12 +29,22 @@ class VideoRecorder:
             return None
 
 
-        height,width,_ = frames[0].shape
+
+        path = os.path.join(
+
+            Settings.VIDEO_FOLDER,
+
+            filename
+
+        )
 
 
-        writer=cv2.VideoWriter(
+        height, width = frames[0][1].shape[:2]
 
-            filename,
+
+        writer = cv2.VideoWriter(
+
+            path,
 
             cv2.VideoWriter_fourcc(
                 *"mp4v"
@@ -42,12 +52,15 @@ class VideoRecorder:
 
             self.fps,
 
-            (width,height)
+            (
+                width,
+                height
+            )
 
         )
 
 
-        for frame in frames:
+        for _,frame in frames:
 
             writer.write(frame)
 
@@ -55,4 +68,4 @@ class VideoRecorder:
         writer.release()
 
 
-        return filename
+        return path

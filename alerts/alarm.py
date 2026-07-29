@@ -1,22 +1,60 @@
+import logging
+
+
+logger = logging.getLogger("EdgeGuard")
+
+
 class AlarmManager:
+    """
+    Controls physical alarm system.
+
+    Future:
+    - GPIO
+    - Relay
+    - Siren
+    """
+
 
     def __init__(self):
 
-        self.alarm_active = False
+        self.active = False
 
-    def trigger(self, event):
 
-        if not self.alarm_active:
 
-            self.alarm_active = True
+    def trigger(
+        self,
+        event
+    ):
 
-            print(
-                f"🚨 Alarm Triggered - "
-                f"{event['camera']}"
+
+        if event.severity == "CRITICAL":
+
+
+            self.active = True
+
+
+            logger.warning(
+                f"""
+                🚨 ALARM TRIGGERED
+
+                Event:
+                {event.event_type}
+
+                Person:
+                {event.person_name}
+
+                Zone:
+                {event.zone_name}
+                """
             )
+
+
 
     def reset(self):
 
-        self.alarm_active = False
+        self.active = False
 
-        print("Alarm Reset")
+
+        logger.info(
+            "Alarm reset"
+        )

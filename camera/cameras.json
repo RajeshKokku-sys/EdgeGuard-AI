@@ -1,0 +1,11 @@
+{
+    "cameras": [
+        {
+            "id": "CAM001",
+            "name": "Laptop Camera",
+            "source": 0,
+            "location": "Desk",
+            "enabled": true
+        }
+    ]
+}

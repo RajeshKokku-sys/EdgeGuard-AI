@@ -1,3 +1,15 @@
-class NotificationService:
-    def send(self, message: str) -> None:
-        print(f"NOTIFICATION: {message}")
+from abc import ABC, abstractmethod
+
+
+
+class NotificationService(ABC):
+
+
+    @abstractmethod
+    def send(
+        self,
+        event,
+        image_path=None
+    ):
+
+        pass

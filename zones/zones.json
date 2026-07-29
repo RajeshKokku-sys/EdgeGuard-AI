@@ -1,21 +1,33 @@
 {
-    "zones": [
-        {
-            "id": 1,
-            "name": "Vault",
-            "camera": "Main Entrance",
+    "Main Entrance": {
+        "camera": "Main Entrance",
+        "zones": [
+            {
+                "name": "Restricted Area",
+                "type": "RESTRICTED",
+                "points": [
+                    [150, 120],
+                    [550, 120],
+                    [550, 420],
+                    [150, 420]
+                ]
+            }
+        ]
+    },
 
-            "polygon": [
-
-                [400,150],
-
-                [700,150],
-
-                [700,500],
-
-                [400,500]
-
-            ]
-        }
-    ]
+    "Locker Room": {
+        "camera": "Locker Room",
+        "zones": [
+            {
+                "name": "Vault",
+                "type": "RESTRICTED",
+                "points": [
+                    [100,100],
+                    [400,100],
+                    [400,350],
+                    [100,350]
+                ]
+            }
+        ]
+    }
 }
