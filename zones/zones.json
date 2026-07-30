@@ -1,33 +1,24 @@
 {
-    "Main Entrance": {
-        "camera": "Main Entrance",
-        "zones": [
-            {
-                "name": "Restricted Area",
-                "type": "RESTRICTED",
-                "points": [
-                    [150, 120],
-                    [550, 120],
-                    [550, 420],
-                    [150, 420]
-                ]
-            }
-        ]
-    },
-
-    "Locker Room": {
-        "camera": "Locker Room",
-        "zones": [
-            {
-                "name": "Vault",
-                "type": "RESTRICTED",
-                "points": [
-                    [100,100],
-                    [400,100],
-                    [400,350],
-                    [100,350]
-                ]
-            }
-        ]
-    }
+    "zones": [
+        {
+            "name": "Locker Room",
+            "type": "restricted",
+            "points": [
+                [100,100],
+                [400,100],
+                [400,350],
+                [100,350]
+            ]
+        },
+        {
+            "name": "Customer Area",
+            "type": "safe",
+            "points": [
+                [450,100],
+                [700,100],
+                [700,400],
+                [450,400]
+            ]
+        }
+    ]
 }

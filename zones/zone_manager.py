@@ -2,144 +2,33 @@ import json
 import cv2
 import numpy as np
 
-from config.settings import Settings
 
 
 class ZoneManager:
-    """
-    Handles restricted zone detection.
-
-    Uses Bottom Center Point
-    instead of Bounding Box Center.
-
-    Pipeline:
-
-    YOLO bbox
-          |
-          |
-    Bottom Center Point
-          |
-          |
-    Polygon Test
-          |
-          |
-    Intrusion Decision
-    """
-
-    def __init__(self):
-
-        self.zone_file = Settings.ZONE_FILE
-
-        self.zones = self.load_zones()
 
 
-    # =================================================
-    # Load Zones
-    # =================================================
+    def __init__(self, config_file):
 
-    def load_zones(self):
 
-        with open(
-            self.zone_file,
-            "r"
-        ) as file:
+        with open(config_file,"r") as f:
 
-            return json.load(file)
+            data = json.load(f)
+
+
+        self.zones = data["zones"]
 
 
 
-    # =================================================
-    # Get Camera Zones
-    # =================================================
-
-    def get_camera_zones(
+    def point_inside_zone(
         self,
-        camera_name
-    ):
-
-        if camera_name in self.zones:
-
-            return self.zones[camera_name]["zones"]
-
-
-        return []
-
-
-
-    # =================================================
-    # Calculate Foot Point
-    # =================================================
-
-    def get_bottom_center_point(
-        self,
-        bbox
-    ):
-
-        """
-        Calculates the point where
-        person's feet touch ground.
-
-        bbox:
-
-        x1,y1,x2,y2
-
-        """
-
-        x1, y1, x2, y2 = bbox
-
-
-        foot_x = int(
-            (x1 + x2) / 2
-        )
-
-
-        foot_y = int(y2)
-
-
-        return (
-            foot_x,
-            foot_y
-        )
-
-
-
-    # =================================================
-    # Polygon Conversion
-    # =================================================
-
-    def create_polygon(
-        self,
-        points
-    ):
-
-        return np.array(
-            points,
-            dtype=np.int32
-        )
-
-
-
-    # =================================================
-    # Point Inside Zone Test
-    # =================================================
-
-    def is_inside_zone(
-
-        self,
-
-        bbox,
-
+        point,
         zone_points
-
     ):
 
-        foot_point = self.get_bottom_center_point(
-            bbox
-        )
 
-
-        polygon = self.create_polygon(
-            zone_points
+        polygon = np.array(
+            zone_points,
+            np.int32
         )
 
 
@@ -147,7 +36,7 @@ class ZoneManager:
 
             polygon,
 
-            foot_point,
+            point,
 
             False
 
@@ -158,31 +47,25 @@ class ZoneManager:
 
 
 
-    # =================================================
-    # Intrusion Detection
-    # =================================================
-
-    def check_intrusion(
-
+    def check_zone(
         self,
-
-        camera_name,
-
-        bbox
-
+        point
     ):
 
-        zones = self.get_camera_zones(
-            camera_name
-        )
+
+        detected_zone = None
 
 
-        for zone in zones:
+        intrusion = False
 
 
-            inside = self.is_inside_zone(
 
-                bbox,
+        for zone in self.zones:
+
+
+            inside = self.point_inside_zone(
+
+                point,
 
                 zone["points"]
 
@@ -192,75 +75,50 @@ class ZoneManager:
             if inside:
 
 
-                return {
+                detected_zone = zone["name"]
 
 
-                    "intrusion": True,
+                if zone["type"] == "restricted":
 
-
-                    "zone_name":
-                        zone["name"],
-
-
-                    "zone_type":
-                        zone["type"],
-
-
-                    "foot_point":
-                        self.get_bottom_center_point(
-                            bbox
-                        )
-
-                }
+                    intrusion = True
 
 
 
         return {
 
+            "zone":
+                detected_zone,
 
-            "intrusion": False,
-
-
-            "zone_name": None,
-
-
-            "zone_type": None,
-
-
-            "foot_point":
-                self.get_bottom_center_point(
-                    bbox
-                )
+            "intrusion":
+                intrusion
 
         }
 
 
 
-    # =================================================
-    # Draw Zones
-    # =================================================
-
     def draw_zones(
-
         self,
-
-        frame,
-
-        camera_name
-
+        frame
     ):
 
-        zones = self.get_camera_zones(
-            camera_name
-        )
+
+        for zone in self.zones:
 
 
-        for zone in zones:
+            points = np.array(
+
+                zone["points"],
+
+                np.int32
+
+            )
 
 
-            polygon = self.create_polygon(
+            color = (
+                0,0,255
+            ) if zone["type"]=="restricted" else (
 
-                zone["points"]
+                0,255,0
 
             )
 
@@ -269,18 +127,15 @@ class ZoneManager:
 
                 frame,
 
-                [polygon],
+                [points],
 
                 True,
 
-                (0,0,255),
+                color,
 
                 2
 
             )
-
-
-            x,y = zone["points"][0]
 
 
             cv2.putText(
@@ -289,56 +144,17 @@ class ZoneManager:
 
                 zone["name"],
 
-                (x,y-10),
+                tuple(points[0]),
 
                 cv2.FONT_HERSHEY_SIMPLEX,
 
                 0.7,
 
-                (0,0,255),
+                color,
 
                 2
 
             )
-
-
-        return frame
-
-
-
-    # =================================================
-    # Draw Foot Point
-    # =================================================
-
-    def draw_person_position(
-
-        self,
-
-        frame,
-
-        bbox
-
-    ):
-
-
-        foot_point = self.get_bottom_center_point(
-            bbox
-        )
-
-
-        cv2.circle(
-
-            frame,
-
-            foot_point,
-
-            6,
-
-            (0,255,0),
-
-            -1
-
-        )
 
 
         return frame

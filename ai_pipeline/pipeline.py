@@ -1,38 +1,38 @@
 from tracking.tracker import PersonTracker
 
+from zones.zone_manager import ZoneManager
+
+import os
+
+import cv2
+
+
 
 class AIPipeline:
-    """
-    Complete AI Processing Pipeline
-
-    Camera Frame
-          |
-          ▼
-       YOLO
-          |
-          ▼
-      ByteTrack
-          |
-          ▼
-   Face Recognition
-          |
-          ▼
-  Structured Person Data
-    """
 
 
     def __init__(self):
 
+
         self.tracker = PersonTracker()
+
+
+        self.zone_manager = ZoneManager(
+
+            os.path.join(
+
+                "zones",
+
+                "zones.json"
+
+            )
+
+        )
 
 
 
     def process(self, frame):
 
-
-        # =====================================
-        # Detection + Tracking + Face Recognition
-        # =====================================
 
         results, tracked_people = self.tracker.track(
             frame
@@ -40,59 +40,90 @@ class AIPipeline:
 
 
 
-        # =====================================
-        # YOLO Result Handling
-        # =====================================
-
-        if isinstance(results, list):
-
-            result = results[0]
-
-        else:
-
-            result = results
+        result = results[0]
 
 
-
-        # Draw YOLO bounding boxes
 
         annotated_frame = result.plot()
 
 
 
-        # =====================================
-        # Prepare AI Response
-        # =====================================
+        # Draw zones
 
-        people = []
+        annotated_frame = self.zone_manager.draw_zones(
+
+            annotated_frame
+
+        )
+
+
+
+        people=[]
 
 
 
         for person in tracked_people:
 
 
-            people.append(
-
-                {
-
-                    "track_id":
-                        person["track_id"],
+            x1,y1,x2,y2 = person["bbox"]
 
 
-                    "confidence":
-                        person["confidence"],
+
+            # Bottom center
+
+            center_x = int(
+                (x1+x2)/2
+            )
+
+            center_y = int(
+                y2
+            )
 
 
-                    "bbox":
-                        person["bbox"],
 
+            zone_result = self.zone_manager.check_zone(
 
-                    "identity":
-                        person["identity"]
+                (
+                    center_x,
 
-                }
+                    center_y
+
+                )
 
             )
+
+
+
+            person["zone"] = zone_result["zone"]
+
+            person["intrusion"] = zone_result["intrusion"]
+
+
+
+            # Draw feet point
+
+            cv2.circle(
+
+                annotated_frame,
+
+                (
+                    center_x,
+
+                    center_y
+
+                ),
+
+                5,
+
+                (0,0,255),
+
+                -1
+
+            )
+
+
+
+            people.append(person)
 
 
 
